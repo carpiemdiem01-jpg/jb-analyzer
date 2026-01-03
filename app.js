@@ -14,8 +14,11 @@ async function loadData() {
   resultsBox.textContent = "Buscando resultados...";
   analysisBox.textContent = "Processando análises...";
 
-  let analysisOutput = "";
   let resultsOutput = "";
+  let analysisOutput = "";
+
+  let totalSorteiosComDados = 0;
+  let totalSorteiosAnalisados = 0;
 
   const baseDate = new Date(date);
 
@@ -29,28 +32,50 @@ async function loadData() {
     try {
       const res = await fetch(url);
       const json = await res.json();
-      if (!json.data) continue;
+
+      if (json.type !== "success" || !Array.isArray(json.data)) {
+        continue;
+      }
 
       resultsOutput += `<div><strong>${iso}</strong></div>`;
 
       json.data.forEach(game => {
+        totalSorteiosComDados++;
+
         const nums = game.places
-          .slice(0, 5) // 🔥 somente 1º ao 5º
+          .slice(0, 5) // somente 1º ao 5º prêmio
           .map(n => n.padStart(4, "0"));
 
-        resultsOutput += `<div class="small">${game.lotteryName}: ${nums.join(" | ")}</div>`;
+        resultsOutput += `
+          <div class="small">
+            ${game.lotteryName}: ${nums.join(" | ")}
+          </div>
+        `;
 
         analysisOutput += analyzeSorteio(game.lotteryName, nums);
+        totalSorteiosAnalisados++;
       });
 
       resultsOutput += `<br>`;
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error("Erro ao buscar", iso, err);
     }
   }
 
-  resultsBox.innerHTML = resultsOutput || "Nenhum resultado encontrado.";
-  analysisBox.innerHTML = analysisOutput || "<em>Nenhuma análise relevante.</em>";
+  // RESULTADOS
+  resultsBox.innerHTML =
+    resultsOutput || "<em>Nenhum resultado encontrado.</em>";
+
+  // ANÁLISES (mensagem inteligente)
+  if (totalSorteiosComDados === 0) {
+    analysisBox.innerHTML =
+      "⚠️ <em>Nenhum resultado disponível para este estado e período.</em>";
+  } else if (totalSorteiosAnalisados === 0) {
+    analysisBox.innerHTML =
+      "ℹ️ <em>Resultados encontrados, mas nenhum padrão relevante identificado.</em>";
+  } else {
+    analysisBox.innerHTML = analysisOutput;
+  }
 }
 
 function analyzeSorteio(nome, nums) {
@@ -59,7 +84,9 @@ function analyzeSorteio(nome, nums) {
   // AUSENTES
   const ausentes = [];
   for (let d = 0; d <= 9; d++) {
-    if (!nums.join("").includes(d.toString())) ausentes.push(d);
+    if (!nums.join("").includes(d.toString())) {
+      ausentes.push(d);
+    }
   }
   if (ausentes.length > 0) {
     html += `<div>⏳ <strong>Ausentes:</strong> ${ausentes.join(", ")}</div>`;
@@ -73,7 +100,7 @@ function analyzeSorteio(nome, nums) {
   const mult = nums.reduce((a, n) => a * Number(n), 1);
   html += `<div>✖️ <strong>Mult:</strong> ${mult}</div>`;
 
-  // DUPLAS
+  // DUPLAS (normal + invertida)
   const duplas = {};
   nums.forEach(n => {
     const d = n.slice(-2);
@@ -91,7 +118,7 @@ function analyzeSorteio(nome, nums) {
   return `
     <div class="analysis-block">
       <div class="analysis-title">🔍 ${nome}</div>
-      ${html}
+      ${html || "<div><em>Nenhuma análise relevante neste sorteio.</em></div>"}
     </div>
   `;
 }
