@@ -25,16 +25,19 @@ async function loadData() {
   const date = document.getElementById("date").value;
   const days = Number(document.getElementById("days").value);
 
-  if (!date) return alert("Escolha uma data");
+  if (!date) {
+    alert("Escolha uma data");
+    return;
+  }
 
   const resultsBox = document.getElementById("results");
   const analysisBox = document.getElementById("analysis");
 
   resultsBox.textContent = "Buscando resultados...";
-  analysisBox.textContent = "Analisando...";
+  analysisBox.innerHTML = "<div class='analysis-block'>Analisando...</div>";
 
   const baseDate = new Date(date);
-  let output = "";
+  let resultsOutput = "";
   let analysisOutput = "";
 
   for (let i = 0; i < days; i++) {
@@ -42,38 +45,47 @@ async function loadData() {
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
 
-    const url =
-      `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${state}&date=${dateStr}`;
+    const url = `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${state}&date=${dateStr}`;
 
     try {
       const resp = await fetch(url);
       const json = await resp.json();
 
-      output += `📅 ${dateStr}\n`;
+      if (!json.data || json.data.length === 0) {
+        resultsOutput += `📅 ${dateStr}\n❌ Sem dados\n\n`;
+        continue;
+      }
+
+      resultsOutput += `📅 ${dateStr}\n`;
 
       json.data.forEach(game => {
-        const nums = game.places.map(n => n.padStart(4, "0"));
+        // ⚠️ considera somente os 5 primeiros resultados
+        const nums = game.places
+          .slice(0, 5)
+          .map(n => n.padStart(4, "0"));
 
-        output += `${game.lotteryName}\n`;
-        output += nums.join(" | ") + "\n";
+        resultsOutput += `${game.lotteryName}\n`;
+        resultsOutput += nums.join(" | ") + "\n\n";
 
         analysisOutput += analyzeSorteio(game.lotteryName, nums);
-        output += "\n";
       });
 
-    } catch {
-      output += `❌ Erro ao buscar ${dateStr}\n\n`;
+    } catch (e) {
+      resultsOutput += `❌ Erro ao buscar ${dateStr}\n\n`;
     }
   }
 
-  resultsBox.textContent = output;
-  analysisBox.textContent = analysisOutput || "Nenhum padrão relevante.";
+  resultsBox.textContent = resultsOutput;
+  analysisBox.innerHTML =
+    analysisOutput || "<div class='analysis-block'>Nenhum padrão relevante.</div>";
 }
 
 function analyzeSorteio(nome, numeros) {
   const rules = getRules();
-  let text = `🔍 ${nome}\n`;
+  let html = `<div class="analysis-block">`;
+  html += `<strong>🔍 ${nome}</strong><br>`;
 
+  // ===== DÍGITOS PRESENTES =====
   const digitsPresent = new Set();
   numeros.forEach(n => n.split("").forEach(d => digitsPresent.add(d)));
 
@@ -83,43 +95,48 @@ function analyzeSorteio(nome, numeros) {
   }
 
   if (rules.ausencia.ativa && ausentes.length >= rules.ausencia.min) {
-    text += `⏳ Ausentes: ${ausentes.join(", ")}\n`;
+    html += `⏳ <strong>Ausentes:</strong> ${ausentes.join(", ")}<br>`;
   }
 
-  let soma = numeros.reduce((a, b) => a + Number(b), 0);
+  // ===== SOMA =====
+  const soma = numeros.reduce((a, b) => a + Number(b), 0);
   if (
     rules.soma.ativa &&
-    (soma < rules.soma.min || soma > rules.soma.max)
+    soma >= rules.soma.min &&
+    soma <= rules.soma.max
   ) {
-    text += `➕ Soma: ${soma}\n`;
+    html += `➕ <strong>Soma:</strong> ${soma}<br>`;
   }
 
-  let mult = 1;
-  numeros.forEach(n => {
-    mult *= Number(n.slice(-rules.mult.digits));
-  });
-
+  // ===== MULTIPLICAÇÃO =====
   if (rules.mult.ativa) {
-    text += `✖️ Mult: ${mult}\n`;
+    let mult = 1;
+    numeros.forEach(n => {
+      mult *= Number(n.slice(-rules.mult.digits));
+    });
+    html += `✖️ <strong>Mult:</strong> ${mult}<br>`;
   }
 
-  const duplaCount = {};
-  numeros.forEach(n => {
-    for (let i = 0; i < 3; i++) {
-      const d = n.substring(i, i + 2);
-      const inv = d.split("").reverse().join("");
-      const key = [d, inv].sort().join("/");
-      duplaCount[key] = (duplaCount[key] || 0) + 1;
-    }
-  });
-
+  // ===== DUPLAS =====
   if (rules.dupla.ativa) {
+    const duplaCount = {};
+
+    numeros.forEach(n => {
+      for (let i = 0; i <= n.length - 2; i++) {
+        const d = n.substring(i, i + 2);
+        const inv = d.split("").reverse().join("");
+        const key = [d, inv].sort().join("/");
+        duplaCount[key] = (duplaCount[key] || 0) + 1;
+      }
+    });
+
     Object.entries(duplaCount)
       .filter(([_, v]) => v >= rules.dupla.min)
       .forEach(([d, v]) => {
-        text += `🔁 Dupla ${d} → ${v}x\n`;
+        html += `🔁 <strong>Dupla ${d}</strong> → ${v}x<br>`;
       });
   }
 
-  return text + "\n";
+  html += `</div>`;
+  return html;
 }
