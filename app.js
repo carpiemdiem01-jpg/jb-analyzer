@@ -1,128 +1,97 @@
-function getRules() {
-  return {
-    dupla: {
-      ativa: document.getElementById("r_dupla").checked,
-      min: Number(document.getElementById("r_dupla_min").value)
-    },
-    ausencia: {
-      ativa: document.getElementById("r_ausencia").checked,
-      min: Number(document.getElementById("r_ausencia_min").value)
-    },
-    soma: {
-      ativa: document.getElementById("r_soma").checked,
-      min: Number(document.getElementById("r_soma_min").value),
-      max: Number(document.getElementById("r_soma_max").value)
-    },
-    mult: {
-      ativa: document.getElementById("r_mult").checked,
-      digits: Number(document.getElementById("r_mult_digits").value)
-    }
-  };
-}
-
 async function loadData() {
   const state = document.getElementById("state").value;
   const date = document.getElementById("date").value;
   const days = Number(document.getElementById("days").value);
 
-  if (!date) return alert("Escolha uma data");
+  if (!date) {
+    alert("Escolha uma data");
+    return;
+  }
 
   const resultsBox = document.getElementById("results");
   const analysisBox = document.getElementById("analysis");
 
   resultsBox.textContent = "Buscando resultados...";
-  analysisBox.textContent = "Analisando...";
+  analysisBox.textContent = "Processando análises...";
+
+  let analysisOutput = "";
+  let resultsOutput = "";
 
   const baseDate = new Date(date);
-  let output = "";
-  let analysisOutput = "";
 
   for (let i = 0; i < days; i++) {
     const d = new Date(baseDate);
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0];
+    const iso = d.toISOString().slice(0, 10);
 
-    const url =
-      `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${state}&date=${dateStr}`;
+    const url = `https://api.pontodobicho.com/bets/jb/results?state=${state}&date=${iso}`;
 
     try {
-      const resp = await fetch(url);
-      const json = await resp.json();
+      const res = await fetch(url);
+      const json = await res.json();
+      if (!json.data) continue;
 
-      output += `📅 ${dateStr}\n`;
+      resultsOutput += `<div><strong>${iso}</strong></div>`;
 
       json.data.forEach(game => {
         const nums = game.places
-  .slice(0, 5)
-  .map(n => n.padStart(4, "0"));
+          .slice(0, 5) // 🔥 somente 1º ao 5º
+          .map(n => n.padStart(4, "0"));
 
-        output += `${game.lotteryName}\n`;
-        output += nums.join(" | ") + "\n";
+        resultsOutput += `<div class="small">${game.lotteryName}: ${nums.join(" | ")}</div>`;
 
         analysisOutput += analyzeSorteio(game.lotteryName, nums);
-        output += "\n";
       });
 
-    } catch {
-      output += `❌ Erro ao buscar ${dateStr}\n\n`;
+      resultsOutput += `<br>`;
+    } catch (e) {
+      console.error(e);
     }
   }
 
-  resultsBox.textContent = output;
-  analysisBox.textContent = analysisOutput || "Nenhum padrão relevante.";
+  resultsBox.innerHTML = resultsOutput || "Nenhum resultado encontrado.";
+  analysisBox.innerHTML = analysisOutput || "<em>Nenhuma análise relevante.</em>";
 }
 
-function analyzeSorteio(nome, numeros) {
-  const rules = getRules();
-  let text = `🔍 ${nome}\n`;
+function analyzeSorteio(nome, nums) {
+  let html = "";
 
-  const digitsPresent = new Set();
-  numeros.forEach(n => n.split("").forEach(d => digitsPresent.add(d)));
-
+  // AUSENTES
   const ausentes = [];
   for (let d = 0; d <= 9; d++) {
-    if (!digitsPresent.has(String(d))) ausentes.push(d);
+    if (!nums.join("").includes(d.toString())) ausentes.push(d);
+  }
+  if (ausentes.length > 0) {
+    html += `<div>⏳ <strong>Ausentes:</strong> ${ausentes.join(", ")}</div>`;
   }
 
-  if (rules.ausencia.ativa && ausentes.length >= rules.ausencia.min) {
-    text += `⏳ Ausentes: ${ausentes.join(", ")}\n`;
-  }
+  // SOMA
+  const soma = nums.reduce((a, n) => a + Number(n), 0);
+  html += `<div>➕ <strong>Soma:</strong> ${soma}</div>`;
 
-  let soma = numeros.reduce((a, b) => a + Number(b), 0);
-  if (
-    rules.soma.ativa &&
-    (soma < rules.soma.min || soma > rules.soma.max)
-  ) {
-    text += `➕ Soma: ${soma}\n`;
-  }
+  // MULT
+  const mult = nums.reduce((a, n) => a * Number(n), 1);
+  html += `<div>✖️ <strong>Mult:</strong> ${mult}</div>`;
 
-  let mult = 1;
-  numeros.forEach(n => {
-    mult *= Number(n.slice(-rules.mult.digits));
+  // DUPLAS
+  const duplas = {};
+  nums.forEach(n => {
+    const d = n.slice(-2);
+    const inv = d.split("").reverse().join("");
+    duplas[d] = (duplas[d] || 0) + 1;
+    if (inv !== d) duplas[inv] = (duplas[inv] || 0) + 1;
   });
 
-  if (rules.mult.ativa) {
-    text += `✖️ Mult: ${mult}\n`;
-  }
+  Object.entries(duplas)
+    .filter(([_, v]) => v >= 3)
+    .forEach(([k, v]) => {
+      html += `<div>🔁 <strong>Dupla:</strong> ${k} → ${v}x</div>`;
+    });
 
-  const duplaCount = {};
-  numeros.forEach(n => {
-    for (let i = 0; i < 3; i++) {
-      const d = n.substring(i, i + 2);
-      const inv = d.split("").reverse().join("");
-      const key = [d, inv].sort().join("/");
-      duplaCount[key] = (duplaCount[key] || 0) + 1;
-    }
-  });
-
-  if (rules.dupla.ativa) {
-    Object.entries(duplaCount)
-      .filter(([_, v]) => v >= rules.dupla.min)
-      .forEach(([d, v]) => {
-        text += `🔁 Dupla ${d} → ${v}x\n`;
-      });
-  }
-
-  return text + "\n";
+  return `
+    <div class="analysis-block">
+      <div class="analysis-title">🔍 ${nome}</div>
+      ${html}
+    </div>
+  `;
 }
-
