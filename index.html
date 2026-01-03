@@ -5,6 +5,7 @@
   <title>JB Analyzer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="manifest.json">
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -61,16 +62,16 @@
     }
 
     .rule-line {
-      margin-top: 10px;
+      margin-top: 12px;
     }
 
     .rule-line input[type="number"] {
-      margin-top: 4px;
+      margin-top: 6px;
     }
 
     .small {
       font-size: 14px;
-      opacity: 0.8;
+      opacity: 0.75;
     }
 
     pre {
@@ -85,7 +86,7 @@
 
   <h1>📊 JB Analyzer</h1>
 
-  <!-- FILTROS PRINCIPAIS -->
+  <!-- FILTROS -->
   <label>Estado</label>
   <select id="state">
     <option value="GO">GO</option>
@@ -109,7 +110,7 @@
 
   <button onclick="loadData()">Buscar resultados</button>
 
-  <!-- REGRAS DE ANÁLISE -->
+  <!-- REGRAS -->
   <div class="box">
     <h3>⚙️ Regras de Análise</h3>
 
@@ -159,7 +160,7 @@
 
   <!-- ANÁLISES -->
   <div class="box">
-    <h3>🧠 Análises</h3>
+    <h3>🧠 Análises por Sorteio</h3>
     <div id="analysis">—</div>
   </div>
 
