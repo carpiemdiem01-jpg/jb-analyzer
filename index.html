@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JB Analyzer</title>
+
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#111">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #eee;
+      margin: 0;
+      padding: 12px;
+    }
+    h2 { margin-top: 0 }
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      background: #1e88e5;
+      border: none;
+      color: #fff;
+      font-size: 16px;
+      border-radius: 6px;
+    }
+    select, input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 6px;
+      border-radius: 6px;
+      border: none;
+    }
+    pre {
+      background: #222;
+      padding: 10px;
+      border-radius: 6px;
+      overflow-x: auto;
+    }
+    .box { margin-top: 12px; }
+  </style>
+</head>
+
+<body>
+
+<h2>📊 JB Analyzer</h2>
+
+<label>Estado</label>
+<select id="state">
+  <option value="GO">GO</option>
+</select>
+
+<label>Data final</label>
+<input type="date" id="date" />
+
+<button onclick="loadData()">Buscar últimos 5 dias</button>
+
+<div class="box">
+  <h3>📋 Resultados</h3>
+  <pre id="results">Aguardando...</pre>
+</div>
+
+<div class="box">
+  <h3>🧠 Análises</h3>
+  <pre id="analysis">—</pre>
+</div>
+
+<script src="app.js"></script>
+
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js");
+  }
+</script>
+
+</body>
+</html>
