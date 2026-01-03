@@ -1,16 +1,23 @@
-function saveRules() {
-  const text = document.getElementById("rules").value;
-  localStorage.setItem("jb_rules", text);
-  alert("Regras salvas");
-}
-
-function loadRules() {
-  return localStorage.getItem("jb_rules") || `
-dupla_min=15
-digito_ausente=20
-soma_min=1000
-soma_max=9000
-`;
+function getRules() {
+  return {
+    dupla: {
+      ativa: document.getElementById("r_dupla").checked,
+      min: Number(document.getElementById("r_dupla_min").value)
+    },
+    ausencia: {
+      ativa: document.getElementById("r_ausencia").checked,
+      min: Number(document.getElementById("r_ausencia_min").value)
+    },
+    soma: {
+      ativa: document.getElementById("r_soma").checked,
+      min: Number(document.getElementById("r_soma_min").value),
+      max: Number(document.getElementById("r_soma_max").value)
+    },
+    mult: {
+      ativa: document.getElementById("r_mult").checked,
+      digits: Number(document.getElementById("r_mult_digits").value)
+    }
+  };
 }
 
 async function loadData() {
@@ -18,22 +25,17 @@ async function loadData() {
   const date = document.getElementById("date").value;
   const days = Number(document.getElementById("days").value);
 
-  if (!date) {
-    alert("Escolha uma data");
-    return;
-  }
-
-  document.getElementById("rules").value = loadRules();
+  if (!date) return alert("Escolha uma data");
 
   const resultsBox = document.getElementById("results");
   const analysisBox = document.getElementById("analysis");
 
   resultsBox.textContent = "Buscando resultados...";
-  analysisBox.textContent = "Processando análises...";
+  analysisBox.textContent = "Analisando...";
 
   const baseDate = new Date(date);
-  const allNumbers = [];
   let output = "";
+  let analysisOutput = "";
 
   for (let i = 0; i < days; i++) {
     const d = new Date(baseDate);
@@ -50,37 +52,59 @@ async function loadData() {
       output += `📅 ${dateStr}\n`;
 
       json.data.forEach(game => {
-        output += `${game.lotteryName}\n`;
         const nums = game.places.map(n => n.padStart(4, "0"));
-        nums.forEach(n => allNumbers.push(n));
-        output += nums.join(" | ") + "\n\n";
+
+        output += `${game.lotteryName}\n`;
+        output += nums.join(" | ") + "\n";
+
+        analysisOutput += analyzeSorteio(game.lotteryName, nums);
+        output += "\n";
       });
 
     } catch {
-      output += `❌ Erro ao buscar ${dateStr}\n`;
+      output += `❌ Erro ao buscar ${dateStr}\n\n`;
     }
   }
 
   resultsBox.textContent = output;
-  analysisBox.textContent = runAnalysis(allNumbers);
+  analysisBox.textContent = analysisOutput || "Nenhum padrão relevante.";
 }
 
-function runAnalysis(numbers) {
-  const rules = Object.fromEntries(
-    loadRules()
-      .split("\n")
-      .filter(l => l.includes("="))
-      .map(l => l.split("="))
-  );
+function analyzeSorteio(nome, numeros) {
+  const rules = getRules();
+  let text = `🔍 ${nome}\n`;
+
+  const digitsPresent = new Set();
+  numeros.forEach(n => n.split("").forEach(d => digitsPresent.add(d)));
+
+  const ausentes = [];
+  for (let d = 0; d <= 9; d++) {
+    if (!digitsPresent.has(String(d))) ausentes.push(d);
+  }
+
+  if (rules.ausencia.ativa && ausentes.length >= rules.ausencia.min) {
+    text += `⏳ Ausentes: ${ausentes.join(", ")}\n`;
+  }
+
+  let soma = numeros.reduce((a, b) => a + Number(b), 0);
+  if (
+    rules.soma.ativa &&
+    (soma < rules.soma.min || soma > rules.soma.max)
+  ) {
+    text += `➕ Soma: ${soma}\n`;
+  }
+
+  let mult = 1;
+  numeros.forEach(n => {
+    mult *= Number(n.slice(-rules.mult.digits));
+  });
+
+  if (rules.mult.ativa) {
+    text += `✖️ Mult: ${mult}\n`;
+  }
 
   const duplaCount = {};
-  const digitCount = {};
-
-  numbers.forEach(n => {
-    n.split("").forEach(d => {
-      digitCount[d] = (digitCount[d] || 0) + 1;
-    });
-
+  numeros.forEach(n => {
     for (let i = 0; i < 3; i++) {
       const d = n.substring(i, i + 2);
       const inv = d.split("").reverse().join("");
@@ -89,24 +113,13 @@ function runAnalysis(numbers) {
     }
   });
 
-  let report = "🔁 DUPLAS COINCIDENTES\n";
-  Object.entries(duplaCount)
-    .filter(([_, v]) => v >= Number(rules.dupla_min || 10))
-    .sort((a, b) => b[1] - a[1])
-    .forEach(([d, v]) => report += `${d} → ${v}x\n`);
+  if (rules.dupla.ativa) {
+    Object.entries(duplaCount)
+      .filter(([_, v]) => v >= rules.dupla.min)
+      .forEach(([d, v]) => {
+        text += `🔁 Dupla ${d} → ${v}x\n`;
+      });
+  }
 
-  report += "\n🔢 DÍGITOS MAIS FREQUENTES\n";
-  Object.entries(digitCount)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 7)
-    .forEach(([d, v]) => report += `${d}: ${v}x\n`);
-
-  const soma = numbers.slice(0, 5).reduce((a, b) => a + Number(b), 0);
-  report += `\n➕ SOMA (ref): ${String(soma).slice(-4)}\n`;
-
-  let mult = 1;
-  numbers.slice(0, 5).forEach(n => mult *= Number(n.slice(-2)));
-  report += `✖️ MULT (ref): ${String(mult).slice(-5)}\n`;
-
-  return report;
+  return text + "\n";
 }
