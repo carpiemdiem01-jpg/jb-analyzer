@@ -11,36 +11,45 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #111;
-      color: #eee;
+      background: #0f0f0f;
+      color: #f0f0f0;
       margin: 0;
       padding: 12px;
     }
-    h2 { margin-top: 0 }
+    h2, h3 {
+      margin: 6px 0;
+    }
+    label {
+      font-size: 14px;
+      opacity: 0.8;
+    }
     button {
       width: 100%;
-      padding: 10px;
-      margin-top: 8px;
+      padding: 12px;
+      margin-top: 10px;
       background: #1e88e5;
       border: none;
       color: #fff;
       font-size: 16px;
-      border-radius: 6px;
+      border-radius: 8px;
     }
     select, input {
       width: 100%;
-      padding: 8px;
+      padding: 10px;
       margin-top: 6px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: none;
+      font-size: 16px;
     }
     pre {
-      background: #222;
-      padding: 10px;
-      border-radius: 6px;
-      overflow-x: auto;
+      background: #1b1b1b;
+      padding: 12px;
+      border-radius: 8px;
+      white-space: pre-wrap;
     }
-    .box { margin-top: 12px; }
+    .box {
+      margin-top: 14px;
+    }
   </style>
 </head>
 
@@ -54,13 +63,13 @@
 </select>
 
 <label>Data final</label>
-<input type="date" id="date" />
+<input type="date" id="date">
 
 <button onclick="loadData()">Buscar últimos 5 dias</button>
 
 <div class="box">
   <h3>📋 Resultados</h3>
-  <pre id="results">Aguardando...</pre>
+  <pre id="results">Aguardando busca...</pre>
 </div>
 
 <div class="box">
