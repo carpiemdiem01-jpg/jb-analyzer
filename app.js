@@ -52,7 +52,9 @@ async function loadData() {
       output += `📅 ${dateStr}\n`;
 
       json.data.forEach(game => {
-        const nums = game.places.map(n => n.padStart(4, "0"));
+        const nums = game.places
+  .slice(0, 5)
+  .map(n => n.padStart(4, "0"));
 
         output += `${game.lotteryName}\n`;
         output += nums.join(" | ") + "\n";
@@ -123,3 +125,4 @@ function analyzeSorteio(nome, numeros) {
 
   return text + "\n";
 }
+
