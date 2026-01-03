@@ -22,7 +22,7 @@ async function loadData() {
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
 
-    const url = `https://api.pontodobicho.com/bets/jb/results?state=${state}&date=${dateStr}`;
+    const url = `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${state}&date=${dateStr}`;
     const resp = await fetch(url);
     const json = await resp.json();
 
@@ -78,3 +78,4 @@ function runAnalysis(numbers) {
 
   return report || "Nenhum padrão relevante detectado.";
 }
+
