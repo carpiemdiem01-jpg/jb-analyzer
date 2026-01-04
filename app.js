@@ -45,8 +45,12 @@ async function loadData() {
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
 
-const url =
-  `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${apiState}&date=${dateStr}`;
+let apiState = state;
+
+if (state === "NACIONAL") apiState = "DF";
+if (state === "BA") apiState = "BA";
+
+const url = `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${apiState}&date=${dateStr}`;
 
     try {
       const resp = await fetch(url);
@@ -141,5 +145,6 @@ function analyzeSorteio(nome, numeros) {
   html += `</div>`;
   return html;
 }
+
 
 
