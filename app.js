@@ -1,3 +1,6 @@
+// =======================
+// REGRAS
+// =======================
 function getRules() {
   return {
     dupla: {
@@ -20,6 +23,52 @@ function getRules() {
   };
 }
 
+// =======================
+// MAPA DE PUXADA (CONFIRMADO)
+// =======================
+const puxadas = {
+  AVESTRUZ: "VEADO",
+  VEADO: "AVESTRUZ",
+
+  AGUIA: "URSO",
+  URSO: "AGUIA",
+
+  BURRO: "TIGRE",
+  TIGRE: "BURRO",
+
+  BORBOLETA: "TOURO",
+  TOURO: "BORBOLETA",
+
+  CACHORRO: "PERU",
+  PERU: "CACHORRO",
+
+  CABRA: "PAVAO",
+  PAVAO: "CABRA",
+
+  CARNEIRO: "PORCO",
+  PORCO: "CARNEIRO",
+
+  CAMELO: "MACACO",
+  MACACO: "CAMELO",
+
+  COBRA: "LEAO",
+  LEAO: "COBRA",
+
+  COELHO: "JACARE",
+  JACARE: "COELHO",
+
+  CAVALO: "GATO",
+  GATO: "CAVALO",
+
+  ELEFANTE: "GALO",
+  GALO: "ELEFANTE",
+
+  VACA: "VACA"
+};
+
+// =======================
+// BUSCA DE DADOS
+// =======================
 async function loadData() {
   const state = document.getElementById("state").value;
   const date = document.getElementById("date").value;
@@ -43,21 +92,24 @@ async function loadData() {
 
     let apiState = state;
     if (state === "NACIONAL") apiState = "DF";
-    if (state === "BA") apiState = "BA";
 
     const url = `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${apiState}&date=${dateStr}`;
 
     try {
       const resp = await fetch(url);
       const json = await resp.json();
+      if (!json.data || json.data.length === 0) continue;
 
-      if (!json.data || json.data.length === 0) {
-        continue;
-      }
+      // 🔥 ORDENA DO MAIS RECENTE PARA O MAIS ANTIGO
+      const jogosOrdenados = json.data.sort((a, b) => {
+        const ha = parseInt(a.lotteryName.match(/\d+/));
+        const hb = parseInt(b.lotteryName.match(/\d+/));
+        return hb - ha;
+      });
 
-      json.data.forEach(game => {
+      jogosOrdenados.forEach(game => {
         const nums = game.places
-          .slice(0, 5) // 🔥 somente 1º ao 5º
+          .slice(0, 5)
           .map(n => n.padStart(4, "0"));
 
         analysisOutput += analyzeSorteio(
@@ -67,62 +119,40 @@ async function loadData() {
         );
       });
 
-    } catch (e) {
-  console.warn("Falha parcial em", dateStr);
-  continue;
-}
+    } catch {
+      continue;
+    }
   }
 
   analysisBox.innerHTML =
-    analysisOutput || "<div class='analysis-block'>Nenhum padrão relevante encontrado.</div>";
+    analysisOutput || "<div class='analysis-block'>Nenhum padrão relevante.</div>";
 }
 
+// =======================
+// ANÁLISE UNIFICADA
+// =======================
 function analyzeSorteio(data, nome, numeros) {
   const rules = getRules();
   let html = `<div class="analysis-block">`;
 
-  // CONTEXTO
   html += `<div><strong>📅 ${data}</strong></div>`;
   html += `<div><strong>${nome}</strong></div>`;
   html += `<div class="small">${numeros.join(" | ")}</div><br>`;
 
-  // DÍGITOS PRESENTES
-  const digitsPresent = new Set();
-  numeros.forEach(n => n.split("").forEach(d => digitsPresent.add(d)));
-
-  // AUSENTES
+  // ===== AUSÊNCIA (FINAIS)
+  const finais = numeros.map(n => n.slice(-1));
   const ausentes = [];
   for (let d = 0; d <= 9; d++) {
-    if (!digitsPresent.has(String(d))) ausentes.push(d);
+    if (!finais.includes(String(d))) ausentes.push(d);
   }
 
   if (rules.ausencia.ativa && ausentes.length >= rules.ausencia.min) {
-    html += `⏳ <strong>Ausentes:</strong> ${ausentes.join(", ")}<br>`;
+    html += `⏳ <strong>Finais ausentes:</strong> ${ausentes.join(", ")}<br>`;
   }
 
-  // SOMA
-  const soma = numeros.reduce((a, b) => a + Number(b), 0);
-  if (
-    rules.soma.ativa &&
-    soma >= rules.soma.min &&
-    soma <= rules.soma.max
-  ) {
-    html += `➕ <strong>Soma:</strong> ${soma}<br>`;
-  }
-
-  // MULTIPLICAÇÃO
-  if (rules.mult.ativa) {
-    let mult = 1;
-    numeros.forEach(n => {
-      mult *= Number(n.slice(-rules.mult.digits));
-    });
-    html += `✖️ <strong>Mult:</strong> ${mult}<br>`;
-  }
-
-  // DUPLAS
+  // ===== DUPLAS
   if (rules.dupla.ativa) {
     const duplaCount = {};
-
     numeros.forEach(n => {
       for (let i = 0; i <= n.length - 2; i++) {
         const d = n.substring(i, i + 2);
@@ -139,7 +169,12 @@ function analyzeSorteio(data, nome, numeros) {
       });
   }
 
+  // ===== PUXADA (MARCAÇÃO)
+  const nomeBicho = nome.split(" ")[0].toUpperCase();
+  if (puxadas[nomeBicho]) {
+    html += `🐾 <strong>Puxada:</strong> ${nomeBicho} ⇄ ${puxadas[nomeBicho]}<br>`;
+  }
+
   html += `</div>`;
   return html;
 }
-
