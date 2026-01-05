@@ -85,15 +85,21 @@ const url = `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?
     analysisOutput || "<div class='analysis-block'>Nenhum padrão relevante.</div>";
 }
 
-function analyzeSorteio(nome, numeros) {
+function analyzeSorteio(data, nome, numeros) {
   const rules = getRules();
+
   let html = `<div class="analysis-block">`;
-  html += `<strong>🔍 ${nome}</strong><br>`;
+
+  // CONTEXTO DO SORTEIO
+  html += `<div><strong>📅 ${data}</strong></div>`;
+  html += `<div><strong>${nome}</strong></div>`;
+  html += `<div class="small">${numeros.join(" | ")}</div><br>`;
 
   // ===== DÍGITOS PRESENTES =====
   const digitsPresent = new Set();
   numeros.forEach(n => n.split("").forEach(d => digitsPresent.add(d)));
 
+  // ===== AUSENTES =====
   const ausentes = [];
   for (let d = 0; d <= 9; d++) {
     if (!digitsPresent.has(String(d))) ausentes.push(d);
@@ -138,13 +144,14 @@ function analyzeSorteio(nome, numeros) {
     Object.entries(duplaCount)
       .filter(([_, v]) => v >= rules.dupla.min)
       .forEach(([d, v]) => {
-        html += `🔁 <strong>Dupla ${d}</strong> → ${v}x<br>`;
+        html += `🔁 <strong>Dupla:</strong> ${d} → ${v}x<br>`;
       });
   }
 
   html += `</div>`;
   return html;
 }
+
 
 
 
