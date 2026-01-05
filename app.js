@@ -68,8 +68,9 @@ async function loadData() {
       });
 
     } catch (e) {
-      console.error("Erro ao buscar", dateStr, e);
-    }
+  console.warn("Falha parcial em", dateStr);
+  continue;
+}
   }
 
   analysisBox.innerHTML =
@@ -141,3 +142,4 @@ function analyzeSorteio(data, nome, numeros) {
   html += `</div>`;
   return html;
 }
+
