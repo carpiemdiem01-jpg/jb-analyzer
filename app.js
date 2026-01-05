@@ -30,14 +30,10 @@ async function loadData() {
     return;
   }
 
-  const resultsBox = document.getElementById("results");
   const analysisBox = document.getElementById("analysis");
-
-  resultsBox.textContent = "Buscando resultados...";
-  analysisBox.innerHTML = "<div class='analysis-block'>Analisando...</div>";
+  analysisBox.innerHTML = "<div class='analysis-block'>Buscando dados...</div>";
 
   const baseDate = new Date(date);
-  let resultsOutput = "";
   let analysisOutput = "";
 
   for (let i = 0; i < days; i++) {
@@ -45,61 +41,55 @@ async function loadData() {
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
 
-let apiState = state;
+    let apiState = state;
+    if (state === "NACIONAL") apiState = "DF";
+    if (state === "BA") apiState = "BA";
 
-if (state === "NACIONAL") apiState = "DF";
-if (state === "BA") apiState = "BA";
-
-const url = `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${apiState}&date=${dateStr}`;
+    const url = `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${apiState}&date=${dateStr}`;
 
     try {
       const resp = await fetch(url);
       const json = await resp.json();
 
       if (!json.data || json.data.length === 0) {
-        resultsOutput += `📅 ${dateStr}\n❌ Sem dados\n\n`;
         continue;
       }
 
-      resultsOutput += `📅 ${dateStr}\n`;
-
       json.data.forEach(game => {
-        // ⚠️ considera somente os 5 primeiros resultados
         const nums = game.places
-          .slice(0, 5)
+          .slice(0, 5) // 🔥 somente 1º ao 5º
           .map(n => n.padStart(4, "0"));
 
-        resultsOutput += `${game.lotteryName}\n`;
-        resultsOutput += nums.join(" | ") + "\n\n";
-
-        analysisOutput += analyzeSorteio(game.lotteryName, nums);
+        analysisOutput += analyzeSorteio(
+          dateStr,
+          game.lotteryName,
+          nums
+        );
       });
 
     } catch (e) {
-      resultsOutput += `❌ Erro ao buscar ${dateStr}\n\n`;
+      console.error("Erro ao buscar", dateStr, e);
     }
   }
 
-  resultsBox.textContent = resultsOutput;
   analysisBox.innerHTML =
-    analysisOutput || "<div class='analysis-block'>Nenhum padrão relevante.</div>";
+    analysisOutput || "<div class='analysis-block'>Nenhum padrão relevante encontrado.</div>";
 }
 
 function analyzeSorteio(data, nome, numeros) {
   const rules = getRules();
-
   let html = `<div class="analysis-block">`;
 
-  // CONTEXTO DO SORTEIO
+  // CONTEXTO
   html += `<div><strong>📅 ${data}</strong></div>`;
   html += `<div><strong>${nome}</strong></div>`;
   html += `<div class="small">${numeros.join(" | ")}</div><br>`;
 
-  // ===== DÍGITOS PRESENTES =====
+  // DÍGITOS PRESENTES
   const digitsPresent = new Set();
   numeros.forEach(n => n.split("").forEach(d => digitsPresent.add(d)));
 
-  // ===== AUSENTES =====
+  // AUSENTES
   const ausentes = [];
   for (let d = 0; d <= 9; d++) {
     if (!digitsPresent.has(String(d))) ausentes.push(d);
@@ -109,7 +99,7 @@ function analyzeSorteio(data, nome, numeros) {
     html += `⏳ <strong>Ausentes:</strong> ${ausentes.join(", ")}<br>`;
   }
 
-  // ===== SOMA =====
+  // SOMA
   const soma = numeros.reduce((a, b) => a + Number(b), 0);
   if (
     rules.soma.ativa &&
@@ -119,7 +109,7 @@ function analyzeSorteio(data, nome, numeros) {
     html += `➕ <strong>Soma:</strong> ${soma}<br>`;
   }
 
-  // ===== MULTIPLICAÇÃO =====
+  // MULTIPLICAÇÃO
   if (rules.mult.ativa) {
     let mult = 1;
     numeros.forEach(n => {
@@ -128,7 +118,7 @@ function analyzeSorteio(data, nome, numeros) {
     html += `✖️ <strong>Mult:</strong> ${mult}<br>`;
   }
 
-  // ===== DUPLAS =====
+  // DUPLAS
   if (rules.dupla.ativa) {
     const duplaCount = {};
 
@@ -151,7 +141,3 @@ function analyzeSorteio(data, nome, numeros) {
   html += `</div>`;
   return html;
 }
-
-
-
-
