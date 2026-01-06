@@ -9,7 +9,7 @@ const LOTERIAS = {
 };
 
 // ===============================
-// GRUPO DO JOGO DO BICHO (CORRETO)
+// GRUPO DO JOGO DO BICHO
 // ===============================
 function getGrupoByDezena(dezena) {
   if (dezena === 0) return 25;
@@ -32,7 +32,6 @@ async function loadData() {
   analysisBox.innerHTML =
     "<div class='analysis-block'>Aguardando dados...</div>";
 
-  // pegar checkboxes pelo ID (igual ao HTML)
   const selecionadas = Object.keys(LOTERIAS).filter(id =>
     document.getElementById(id)?.checked
   );
@@ -44,7 +43,7 @@ async function loadData() {
   }
 
   const baseDate = new Date(date);
-  let html = "";
+  let sorteios = [];
 
   for (let i = 0; i < days; i++) {
     const d = new Date(baseDate);
@@ -60,41 +59,33 @@ async function loadData() {
         const resp = await fetch(url);
         const json = await resp.json();
 
-        if (!json.data || json.data.length === 0) continue;
+        if (!json.data) continue;
 
-        // mais recente primeiro
-        const jogos = [...json.data].reverse();
-
-        jogos.forEach(game => {
+        json.data.forEach(game => {
           const numeros = game.places
             .slice(0, 5)
             .map(n => n.padStart(4, "0"));
 
-          html += analyzeSorteio(
-            dateStr,
-            game.lotteryName,
+          sorteios.push({
+            data: dateStr,
+            nome: game.lotteryName,
             numeros
-          );
+          });
         });
-
-      } catch (e) {
-        console.warn("Erro ao buscar:", state, dateStr);
-      }
+      } catch {}
     }
   }
 
-  analysisBox.innerHTML =
-    html || "<div class='analysis-block'>Nenhum dado encontrado.</div>";
+  renderAnalises(sorteios);
 }
 
 // ===============================
-// INSERÇÃO MANUAL (ALINHADA AO HTML)
+// INSERÇÃO MANUAL
 // ===============================
 function addManualResult() {
   const nome = document.getElementById("manual_name").value.trim();
   const data = document.getElementById("manual_date").value;
   const raw = document.getElementById("manual_numbers").value;
-  const analysisBox = document.getElementById("analysis");
 
   if (!nome || !data || !raw) {
     alert("Preencha todos os campos do resultado manual.");
@@ -112,33 +103,86 @@ function addManualResult() {
     return;
   }
 
-  analysisBox.innerHTML =
-    analyzeSorteio(data, nome, numeros) + analysisBox.innerHTML;
+  renderAnalises([{ data, nome, numeros }], true);
 }
 
 // ===============================
-// ANÁLISE PRINCIPAL
+// RENDERIZA TODAS AS ANÁLISES
 // ===============================
-function analyzeSorteio(data, nome, numeros) {
+function renderAnalises(sorteios, prepend = false) {
+  const analysisBox = document.getElementById("analysis");
+  let html = "";
+
+  if (!prepend) {
+    html += analiseGeralAusencias(sorteios);
+  }
+
+  sorteios.forEach(s => {
+    html += analisePorSorteio(s);
+  });
+
+  analysisBox.innerHTML = prepend
+    ? html + analysisBox.innerHTML
+    : html || "<div class='analysis-block'>Nenhum dado encontrado.</div>";
+}
+
+// ===============================
+// ANÁLISE GERAL DE AUSÊNCIAS (1º PRÊMIO)
+// ===============================
+function analiseGeralAusencias(sorteios) {
+  const dig = new Set();
+  const dez = new Set();
+  const uni = new Set();
+
+  sorteios.forEach(s => {
+    const p = s.numeros[0];
+    dig.add(p[0]);
+    dig.add(p[1]);
+    dig.add(p[2]);
+    dig.add(p[3]);
+    dez.add(p[2]);
+    uni.add(p[3]);
+  });
+
+  const ausDig = [];
+  const ausDez = [];
+  const ausUni = [];
+
+  for (let i = 0; i <= 9; i++) {
+    if (!dig.has(String(i))) ausDig.push(i);
+    if (!dez.has(String(i))) ausDez.push(i);
+    if (!uni.has(String(i))) ausUni.push(i);
+  }
+
+  return `
+  <div class="analysis-block">
+    <strong>📊 Análise geral de ausências (1º prêmio)</strong><br>
+    🔢 Dígitos ausentes: ${ausDig.join(", ") || "nenhum"}<br>
+    🔟 Dezena ausente (3º dígito): ${ausDez.join(", ") || "nenhuma"}<br>
+    🔢 Unidade ausente (4º dígito): ${ausUni.join(", ") || "nenhuma"}
+  </div>`;
+}
+
+// ===============================
+// ANÁLISE POR SORTEIO
+// ===============================
+function analisePorSorteio(s) {
   let html = `<div class="analysis-block">`;
 
-  html += `<div><strong>📅 ${data}</strong></div>`;
-  html += `<div><strong>${nome}</strong></div>`;
-  html += `<div class="small">${numeros.join(" | ")}</div><br>`;
+  html += `<div><strong>📅 ${s.data}</strong></div>`;
+  html += `<div><strong>${s.nome}</strong></div>`;
+  html += `<div class="small">${s.numeros.join(" | ")}</div><br>`;
 
-  // ===============================
-  // AUSÊNCIA POR NÚMERO (1º PRÊMIO)
-  // ===============================
-  const primeiro = numeros[0];
-  const digitosPresentes = new Set(primeiro.split(""));
+  const presentes = new Set();
+  s.numeros.forEach(n => n.split("").forEach(d => presentes.add(d)));
 
   const ausentes = [];
   for (let i = 0; i <= 9; i++) {
-    if (!digitosPresentes.has(String(i))) ausentes.push(i);
+    if (!presentes.has(String(i))) ausentes.push(i);
   }
 
   if (ausentes.length > 0) {
-    html += `⏳ <strong>Números ausentes (1º prêmio):</strong> ${ausentes.join(", ")}<br>`;
+    html += `⏳ <strong>Dígitos ausentes:</strong> ${ausentes.join(", ")}<br>`;
 
     const grupos = [];
     ausentes.forEach(n => {
@@ -147,15 +191,11 @@ function analyzeSorteio(data, nome, numeros) {
       });
     });
 
-    html += `🐂 <strong>Grupos fortes:</strong> ${[...new Set(grupos)].join(", ")}<br>`;
+    html += `🐂 <strong>Grupos relacionados:</strong> ${[...new Set(grupos)].join(", ")}<br>`;
   }
 
-  // ===============================
-  // DUPLAS
-  // ===============================
   const duplaCount = {};
-
-  numeros.forEach(n => {
+  s.numeros.forEach(n => {
     for (let i = 0; i <= n.length - 2; i++) {
       const d = n.substring(i, i + 2);
       const inv = d.split("").reverse().join("");
