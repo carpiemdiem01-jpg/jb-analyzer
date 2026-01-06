@@ -1,156 +1,174 @@
 // ===============================
-// HISTÓRICO PARA ANÁLISE TEMPORAL
+// CONFIGURAÇÃO DAS LOTERIAS
 // ===============================
-const historyByLottery = {};
+const LOTERIAS = {
+  lot_LOOK: "GO",
+  lot_RJ: "RJ",
+  lot_SP: "SP",
+  lot_NACIONAL: "DF"
+};
 
 // ===============================
-// REGRAS FIXAS (INTERNAS)
+// GRUPO DO JOGO DO BICHO (CORRETO)
 // ===============================
-function getRules() {
-  return {
-    ausencia: { ativa: true },
-    dupla: { ativa: true, min: 2 }
-  };
+function getGrupoByDezena(dezena) {
+  if (dezena === 0) return 25;
+  return Math.ceil(dezena / 4);
 }
 
 // ===============================
-// FUNÇÃO PRINCIPAL
+// BUSCAR RESULTADOS (API)
 // ===============================
 async function loadData() {
-  const state = document.getElementById("state").value;
   const date = document.getElementById("date").value;
   const days = Number(document.getElementById("days").value);
+  const analysisBox = document.getElementById("analysis");
 
   if (!date) {
     alert("Escolha uma data");
     return;
   }
 
-  const analysisBox = document.getElementById("analysis");
   analysisBox.innerHTML =
-    "<div class='analysis-block'>Buscando resultados...</div>";
+    "<div class='analysis-block'>Aguardando dados...</div>";
 
-  let output = "";
+  // pegar checkboxes pelo ID (igual ao HTML)
+  const selecionadas = Object.keys(LOTERIAS).filter(id =>
+    document.getElementById(id)?.checked
+  );
+
+  if (selecionadas.length === 0) {
+    analysisBox.innerHTML =
+      "<div class='analysis-block'>Nenhuma loteria selecionada.</div>";
+    return;
+  }
+
   const baseDate = new Date(date);
+  let html = "";
 
   for (let i = 0; i < days; i++) {
     const d = new Date(baseDate);
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
 
-    let apiState = state;
-    if (state === "NACIONAL") apiState = "DF";
+    for (const lotId of selecionadas) {
+      const state = LOTERIAS[lotId];
+      const url =
+        `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${state}&date=${dateStr}`;
 
-    const url =
-      `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${apiState}&date=${dateStr}`;
+      try {
+        const resp = await fetch(url);
+        const json = await resp.json();
 
-    try {
-      const resp = await fetch(url);
-      const json = await resp.json();
-      if (!json.data || json.data.length === 0) continue;
+        if (!json.data || json.data.length === 0) continue;
 
-      // 🔥 MAIS RECENTE PRIMEIRO
-      const games = [...json.data].reverse();
+        // mais recente primeiro
+        const jogos = [...json.data].reverse();
 
-      games.forEach(game => {
-        const numeros = game.places
-          .slice(0, 5)
-          .map(n => n.padStart(4, "0"));
+        jogos.forEach(game => {
+          const numeros = game.places
+            .slice(0, 5)
+            .map(n => n.padStart(4, "0"));
 
-        output += analyzeSorteio(
-          dateStr,
-          game.lotteryName,
-          numeros
-        );
-      });
+          html += analyzeSorteio(
+            dateStr,
+            game.lotteryName,
+            numeros
+          );
+        });
 
-    } catch {
-      continue;
+      } catch (e) {
+        console.warn("Erro ao buscar:", state, dateStr);
+      }
     }
   }
 
   analysisBox.innerHTML =
-    output || "<div class='analysis-block'>Nenhum padrão relevante.</div>";
+    html || "<div class='analysis-block'>Nenhum dado encontrado.</div>";
 }
 
 // ===============================
-// ANÁLISE UNIFICADA
+// INSERÇÃO MANUAL (ALINHADA AO HTML)
 // ===============================
-function analyzeSorteio(data, nome, numeros) {
-  const rules = getRules();
+function addManualResult() {
+  const nome = document.getElementById("manual_name").value.trim();
+  const data = document.getElementById("manual_date").value;
+  const raw = document.getElementById("manual_numbers").value;
+  const analysisBox = document.getElementById("analysis");
 
-  if (!historyByLottery[nome]) {
-    historyByLottery[nome] = [];
+  if (!nome || !data || !raw) {
+    alert("Preencha todos os campos do resultado manual.");
+    return;
   }
 
-  const history = historyByLottery[nome];
+  const numeros = raw
+    .split(",")
+    .map(n => n.trim())
+    .filter(n => /^\d{4}$/.test(n))
+    .slice(0, 5);
 
+  if (numeros.length < 5) {
+    alert("Informe exatamente 5 números de 4 dígitos.");
+    return;
+  }
+
+  analysisBox.innerHTML =
+    analyzeSorteio(data, nome, numeros) + analysisBox.innerHTML;
+}
+
+// ===============================
+// ANÁLISE PRINCIPAL
+// ===============================
+function analyzeSorteio(data, nome, numeros) {
   let html = `<div class="analysis-block">`;
 
-  // CONTEXTO
   html += `<div><strong>📅 ${data}</strong></div>`;
   html += `<div><strong>${nome}</strong></div>`;
   html += `<div class="small">${numeros.join(" | ")}</div><br>`;
 
   // ===============================
-  // AUSÊNCIA (FINAIS)
+  // AUSÊNCIA POR NÚMERO (1º PRÊMIO)
   // ===============================
-  if (rules.ausencia.ativa) {
-    const finais = numeros.map(n => n.slice(-1));
-    const ausentes = [];
-    for (let d = 0; d <= 9; d++) {
-      if (!finais.includes(String(d))) ausentes.push(d);
-    }
-    if (ausentes.length > 0) {
-      html += `⏳ <strong>Finais ausentes:</strong> ${ausentes.join(", ")}<br>`;
-    }
+  const primeiro = numeros[0];
+  const digitosPresentes = new Set(primeiro.split(""));
+
+  const ausentes = [];
+  for (let i = 0; i <= 9; i++) {
+    if (!digitosPresentes.has(String(i))) ausentes.push(i);
+  }
+
+  if (ausentes.length > 0) {
+    html += `⏳ <strong>Números ausentes (1º prêmio):</strong> ${ausentes.join(", ")}<br>`;
+
+    const grupos = [];
+    ausentes.forEach(n => {
+      [n, n + 10, n + 20].forEach(dz => {
+        if (dz <= 99) grupos.push(getGrupoByDezena(dz));
+      });
+    });
+
+    html += `🐂 <strong>Grupos fortes:</strong> ${[...new Set(grupos)].join(", ")}<br>`;
   }
 
   // ===============================
   // DUPLAS
   // ===============================
-  if (rules.dupla.ativa) {
-    const duplaCount = {};
-    numeros.forEach(n => {
-      for (let i = 0; i <= n.length - 2; i++) {
-        const d = n.substring(i, i + 2);
-        const inv = d.split("").reverse().join("");
-        const key = [d, inv].sort().join("/");
-        duplaCount[key] = (duplaCount[key] || 0) + 1;
-      }
-    });
+  const duplaCount = {};
 
-    Object.entries(duplaCount)
-      .filter(([_, v]) => v >= rules.dupla.min)
-      .forEach(([d, v]) => {
-        html += `🔁 <strong>Dupla:</strong> ${d} → ${v}x<br>`;
-      });
-  }
-
-  // ===============================
-  // CONTINUIDADE / ECO TEMPORAL
-  // ===============================
-  if (history.length > 0) {
-    const atual = numeros.map(n => n.slice(-2));
-
-    const check = (label, past) => {
-      const pastDezenas = past.map(n => n.slice(-2));
-      const hits = atual.filter(d => pastDezenas.includes(d));
-      if (hits.length > 0) {
-        html += `⏭️ <strong>${label}:</strong> ${hits.join(", ")}<br>`;
-      }
-    };
-
-    check("Eco do sorteio anterior", history[history.length - 1]);
-
-    if (history.length > 1) {
-      check("Eco do penúltimo sorteio", history[history.length - 2]);
+  numeros.forEach(n => {
+    for (let i = 0; i <= n.length - 2; i++) {
+      const d = n.substring(i, i + 2);
+      const inv = d.split("").reverse().join("");
+      const key = [d, inv].sort().join("/");
+      duplaCount[key] = (duplaCount[key] || 0) + 1;
     }
-  }
+  });
 
-  // Atualiza histórico (máx 2)
-  history.push(numeros);
-  if (history.length > 2) history.shift();
+  Object.entries(duplaCount)
+    .filter(([_, v]) => v >= 2)
+    .forEach(([d, v]) => {
+      html += `🔁 <strong>Dupla:</strong> ${d} → ${v}x<br>`;
+    });
 
   html += `</div>`;
   return html;
