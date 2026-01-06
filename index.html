@@ -1,56 +1,74 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>JB Analyzer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="manifest" href="manifest.json">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <style>
     body {
+      margin: 0;
+      padding: 12px;
       font-family: Arial, sans-serif;
       background: #0f0f0f;
       color: #eaeaea;
-      margin: 0;
-      padding: 12px;
     }
 
     h1, h2, h3 {
-      margin: 10px 0;
+      margin: 8px 0;
+    }
+
+    .box {
+      background: #1b1b1b;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 14px;
     }
 
     label {
       display: block;
-      margin-top: 12px;
+      margin-top: 10px;
       font-weight: bold;
     }
 
-    select, input, button {
+    input[type="date"],
+    select,
+    textarea,
+    button {
       width: 100%;
-      padding: 10px;
       margin-top: 6px;
+      padding: 10px;
       border-radius: 6px;
       border: none;
       font-size: 16px;
     }
 
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
     button {
-      margin-top: 14px;
       background: #2b8cff;
       color: #fff;
       font-weight: bold;
       cursor: pointer;
+      margin-top: 14px;
     }
 
     button:hover {
       opacity: 0.9;
     }
 
-    .box {
-      background: #1b1b1b;
-      padding: 12px;
-      border-radius: 8px;
-      margin-top: 16px;
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .checks label {
+      font-weight: normal;
     }
 
     .analysis-block {
@@ -61,23 +79,9 @@
       border-radius: 4px;
     }
 
-    .rule-line {
-      margin-top: 12px;
-    }
-
-    .rule-line input[type="number"] {
-      margin-top: 6px;
-    }
-
     .small {
       font-size: 14px;
       opacity: 0.75;
-    }
-
-    pre {
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: monospace;
     }
   </style>
 </head>
@@ -87,81 +91,54 @@
   <h1>📊 JB Analyzer</h1>
 
   <!-- FILTROS -->
-  <label>Estado</label>
-  <select id="state">
-    <option value="GO">GO</option>
-    <option value="RJ">RJ</option>
-    <option value="SP">SP</option>
-    <option value="NACIONAL">NACIONAL</option>
-  </select>
-
-  <label>Data final</label>
-  <input type="date" id="date">
-
-  <label>Intervalo (dias)</label>
-  <select id="days">
-    <option value="1">1 dia</option>
-    <option value="2">2 dias</option>
-    <option value="3">3 dias</option>
-    <option value="5" selected>5 dias</option>
-    <option value="7">7 dias</option>
-    <option value="10">10 dias</option>
-  </select>
-
-  <button onclick="loadData()">Buscar resultados</button>
-
-  <!-- REGRAS -->
   <div class="box">
-    <h3>⚙️ Regras de Análise</h3>
+    <label>Data final</label>
+    <input type="date" id="date">
 
-    <div class="rule-line">
-      <label>
-        <input type="checkbox" id="r_dupla" checked>
-        Duplas coincidentes
-      </label>
-      <span class="small">mínimo de ocorrências</span>
-      <input type="number" id="r_dupla_min" value="3">
+    <label>Intervalo (dias)</label>
+    <select id="days">
+      <option value="1">1 dia</option>
+      <option value="2">2 dias</option>
+      <option value="3">3 dias</option>
+      <option value="5" selected>5 dias</option>
+      <option value="7">7 dias</option>
+      <option value="10">10 dias</option>
+    </select>
+
+    <label>Loterias</label>
+    <div class="checks">
+      <label><input type="checkbox" id="lot_LOOK" checked> LOOK</label>
+      <label><input type="checkbox" id="lot_RJ" checked> RJ</label>
+      <label><input type="checkbox" id="lot_SP" checked> SP</label>
+      <label><input type="checkbox" id="lot_NACIONAL" checked> NACIONAL</label>
     </div>
 
-    <div class="rule-line">
-      <label>
-        <input type="checkbox" id="r_ausencia" checked>
-        Ausência por sorteio
-      </label>
-      <span class="small">mínimo de dígitos ausentes</span>
-      <input type="number" id="r_ausencia_min" value="1">
-    </div>
-
-    <div class="rule-line">
-      <label>
-        <input type="checkbox" id="r_soma" checked>
-        Soma por sorteio
-      </label>
-      <span class="small">intervalo</span>
-      <input type="number" id="r_soma_min" value="12000">
-      <input type="number" id="r_soma_max" value="35000">
-    </div>
-
-    <div class="rule-line">
-      <label>
-        <input type="checkbox" id="r_mult" checked>
-        Multiplicação por sorteio
-      </label>
-      <span class="small">últimos dígitos considerados</span>
-      <input type="number" id="r_mult_digits" value="2">
-    </div>
+    <button onclick="loadData()">Buscar resultados</button>
   </div>
 
-  <!-- RESULTADOS -->
+  <!-- ENTRADA MANUAL -->
   <div class="box">
-    <h3>📋 Resultados</h3>
-    <pre id="results">Aguardando...</pre>
+    <h3>✍️ Inserir resultado manual</h3>
+
+    <label>Nome da loteria</label>
+    <input type="text" id="manual_name" placeholder="Ex: BANCA X 18h">
+
+    <label>Data</label>
+    <input type="date" id="manual_date">
+
+    <label>Resultados (1º ao 5º prêmio)</label>
+    <textarea id="manual_numbers"
+      placeholder="Ex: 1234, 5678, 9012, 3456, 7890"></textarea>
+
+    <button onclick="addManualResult()">Adicionar análise</button>
   </div>
 
   <!-- ANÁLISES -->
   <div class="box">
-    <h3>🧠 Análises por Sorteio</h3>
-    <div id="analysis">—</div>
+    <h2>🧠 Análises</h2>
+    <div id="analysis">
+      <div class="analysis-block">Aguardando dados...</div>
+    </div>
   </div>
 
   <script src="app.js"></script>
