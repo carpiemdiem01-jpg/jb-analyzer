@@ -1,74 +1,21 @@
-// =======================
-// REGRAS
-// =======================
+// ===============================
+// HISTÓRICO PARA ANÁLISE TEMPORAL
+// ===============================
+const historyByLottery = {};
+
+// ===============================
+// REGRAS FIXAS (INTERNAS)
+// ===============================
 function getRules() {
   return {
-    dupla: {
-      ativa: document.getElementById("r_dupla").checked,
-      min: Number(document.getElementById("r_dupla_min").value)
-    },
-    ausencia: {
-      ativa: document.getElementById("r_ausencia").checked,
-      min: Number(document.getElementById("r_ausencia_min").value)
-    },
-    soma: {
-      ativa: document.getElementById("r_soma").checked,
-      min: Number(document.getElementById("r_soma_min").value),
-      max: Number(document.getElementById("r_soma_max").value)
-    },
-    mult: {
-      ativa: document.getElementById("r_mult").checked,
-      digits: Number(document.getElementById("r_mult_digits").value)
-    }
+    ausencia: { ativa: true },
+    dupla: { ativa: true, min: 2 }
   };
 }
 
-// =======================
-// MAPA DE PUXADA (CONFIRMADO)
-// =======================
-const puxadas = {
-  AVESTRUZ: "VEADO",
-  VEADO: "AVESTRUZ",
-
-  AGUIA: "URSO",
-  URSO: "AGUIA",
-
-  BURRO: "TIGRE",
-  TIGRE: "BURRO",
-
-  BORBOLETA: "TOURO",
-  TOURO: "BORBOLETA",
-
-  CACHORRO: "PERU",
-  PERU: "CACHORRO",
-
-  CABRA: "PAVAO",
-  PAVAO: "CABRA",
-
-  CARNEIRO: "PORCO",
-  PORCO: "CARNEIRO",
-
-  CAMELO: "MACACO",
-  MACACO: "CAMELO",
-
-  COBRA: "LEAO",
-  LEAO: "COBRA",
-
-  COELHO: "JACARE",
-  JACARE: "COELHO",
-
-  CAVALO: "GATO",
-  GATO: "CAVALO",
-
-  ELEFANTE: "GALO",
-  GALO: "ELEFANTE",
-
-  VACA: "VACA"
-};
-
-// =======================
-// BUSCA DE DADOS
-// =======================
+// ===============================
+// FUNÇÃO PRINCIPAL
+// ===============================
 async function loadData() {
   const state = document.getElementById("state").value;
   const date = document.getElementById("date").value;
@@ -80,10 +27,11 @@ async function loadData() {
   }
 
   const analysisBox = document.getElementById("analysis");
-  analysisBox.innerHTML = "<div class='analysis-block'>Buscando dados...</div>";
+  analysisBox.innerHTML =
+    "<div class='analysis-block'>Buscando resultados...</div>";
 
+  let output = "";
   const baseDate = new Date(date);
-  let analysisOutput = "";
 
   for (let i = 0; i < days; i++) {
     const d = new Date(baseDate);
@@ -93,29 +41,26 @@ async function loadData() {
     let apiState = state;
     if (state === "NACIONAL") apiState = "DF";
 
-    const url = `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${apiState}&date=${dateStr}`;
+    const url =
+      `https://corsproxy.io/?https://api.pontodobicho.com/bets/jb/results?state=${apiState}&date=${dateStr}`;
 
     try {
       const resp = await fetch(url);
       const json = await resp.json();
       if (!json.data || json.data.length === 0) continue;
 
-      // 🔥 ORDENA DO MAIS RECENTE PARA O MAIS ANTIGO
-      const jogosOrdenados = json.data.sort((a, b) => {
-        const ha = parseInt(a.lotteryName.match(/\d+/));
-        const hb = parseInt(b.lotteryName.match(/\d+/));
-        return hb - ha;
-      });
+      // 🔥 MAIS RECENTE PRIMEIRO
+      const games = [...json.data].reverse();
 
-      jogosOrdenados.forEach(game => {
-        const nums = game.places
+      games.forEach(game => {
+        const numeros = game.places
           .slice(0, 5)
           .map(n => n.padStart(4, "0"));
 
-        analysisOutput += analyzeSorteio(
+        output += analyzeSorteio(
           dateStr,
           game.lotteryName,
-          nums
+          numeros
         );
       });
 
@@ -125,32 +70,45 @@ async function loadData() {
   }
 
   analysisBox.innerHTML =
-    analysisOutput || "<div class='analysis-block'>Nenhum padrão relevante.</div>";
+    output || "<div class='analysis-block'>Nenhum padrão relevante.</div>";
 }
 
-// =======================
+// ===============================
 // ANÁLISE UNIFICADA
-// =======================
+// ===============================
 function analyzeSorteio(data, nome, numeros) {
   const rules = getRules();
+
+  if (!historyByLottery[nome]) {
+    historyByLottery[nome] = [];
+  }
+
+  const history = historyByLottery[nome];
+
   let html = `<div class="analysis-block">`;
 
+  // CONTEXTO
   html += `<div><strong>📅 ${data}</strong></div>`;
   html += `<div><strong>${nome}</strong></div>`;
   html += `<div class="small">${numeros.join(" | ")}</div><br>`;
 
-  // ===== AUSÊNCIA (FINAIS)
-  const finais = numeros.map(n => n.slice(-1));
-  const ausentes = [];
-  for (let d = 0; d <= 9; d++) {
-    if (!finais.includes(String(d))) ausentes.push(d);
+  // ===============================
+  // AUSÊNCIA (FINAIS)
+  // ===============================
+  if (rules.ausencia.ativa) {
+    const finais = numeros.map(n => n.slice(-1));
+    const ausentes = [];
+    for (let d = 0; d <= 9; d++) {
+      if (!finais.includes(String(d))) ausentes.push(d);
+    }
+    if (ausentes.length > 0) {
+      html += `⏳ <strong>Finais ausentes:</strong> ${ausentes.join(", ")}<br>`;
+    }
   }
 
-  if (rules.ausencia.ativa && ausentes.length >= rules.ausencia.min) {
-    html += `⏳ <strong>Finais ausentes:</strong> ${ausentes.join(", ")}<br>`;
-  }
-
-  // ===== DUPLAS
+  // ===============================
+  // DUPLAS
+  // ===============================
   if (rules.dupla.ativa) {
     const duplaCount = {};
     numeros.forEach(n => {
@@ -169,11 +127,30 @@ function analyzeSorteio(data, nome, numeros) {
       });
   }
 
-  // ===== PUXADA (MARCAÇÃO)
-  const nomeBicho = nome.split(" ")[0].toUpperCase();
-  if (puxadas[nomeBicho]) {
-    html += `🐾 <strong>Puxada:</strong> ${nomeBicho} ⇄ ${puxadas[nomeBicho]}<br>`;
+  // ===============================
+  // CONTINUIDADE / ECO TEMPORAL
+  // ===============================
+  if (history.length > 0) {
+    const atual = numeros.map(n => n.slice(-2));
+
+    const check = (label, past) => {
+      const pastDezenas = past.map(n => n.slice(-2));
+      const hits = atual.filter(d => pastDezenas.includes(d));
+      if (hits.length > 0) {
+        html += `⏭️ <strong>${label}:</strong> ${hits.join(", ")}<br>`;
+      }
+    };
+
+    check("Eco do sorteio anterior", history[history.length - 1]);
+
+    if (history.length > 1) {
+      check("Eco do penúltimo sorteio", history[history.length - 2]);
+    }
   }
+
+  // Atualiza histórico (máx 2)
+  history.push(numeros);
+  if (history.length > 2) history.shift();
 
   html += `</div>`;
   return html;
