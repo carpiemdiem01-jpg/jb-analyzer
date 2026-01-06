@@ -1,13 +1,3 @@
-// ===============================
-// TABELA DO JOGO DO BICHO
-// ===============================
-function getGrupoByDezena(dezena) {
-  return Math.floor(dezena / 4) + 1;
-}
-
-// ===============================
-// FUNÇÃO PRINCIPAL DE ANÁLISE
-// ===============================
 function analyzeSorteio(data, nome, numeros) {
   let html = `<div class="analysis-block">`;
 
@@ -19,32 +9,27 @@ function analyzeSorteio(data, nome, numeros) {
   // 1️⃣ AUSÊNCIA POR NÚMERO (1º PRÊMIO)
   // ===============================
   const primeiroPremio = numeros[0];
-  const dezenaPrimeiro = Number(primeiroPremio.slice(-2));
 
-  const presentes = new Set();
-  numeros.forEach(n => {
-    presentes.add(Number(n.slice(-2)));
-  });
+  const digitosPresentes = new Set(
+    primeiroPremio.split("").map(d => Number(d))
+  );
 
-  let numeroAusente = null;
-  for (let i = 0; i <= 99; i++) {
-    if (!presentes.has(i)) {
-      numeroAusente = i % 10;
-      break;
-    }
+  const digitosAusentes = [];
+  for (let i = 0; i <= 9; i++) {
+    if (!digitosPresentes.has(i)) digitosAusentes.push(i);
   }
 
-  if (numeroAusente !== null) {
-    html += `🎯 <strong>Número ausente (1º prêmio):</strong> ${numeroAusente}<br>`;
+  if (digitosAusentes.length > 0) {
+    html += `🎯 <strong>Números ausentes (1º prêmio):</strong> ${digitosAusentes.join(", ")}<br>`;
 
     // ===============================
     // 2️⃣ GRUPOS RELACIONADOS
     // ===============================
     const grupos = [];
-    [numeroAusente, numeroAusente + 10, numeroAusente + 20].forEach(n => {
-      if (n <= 99) {
-        grupos.push(getGrupoByDezena(n));
-      }
+    digitosAusentes.forEach(d => {
+      [d, d + 10, d + 20].forEach(n => {
+        if (n <= 99) grupos.push(getGrupoByDezena(n));
+      });
     });
 
     html += `🐂 <strong>Grupos fortes:</strong> ${[...new Set(grupos)].join(", ")}<br>`;
@@ -65,7 +50,7 @@ function analyzeSorteio(data, nome, numeros) {
   });
 
   Object.entries(duplaCount)
-    .filter(([_, v]) => v >= 2)
+    .filter(([_, v]) => v >= 3)
     .forEach(([d, v]) => {
       html += `🔁 <strong>Dupla:</strong> ${d} → ${v}x<br>`;
     });
