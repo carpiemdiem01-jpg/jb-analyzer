@@ -1,4 +1,4 @@
-const CACHE_NAME = "jb-analyzer-cache-v2"; // <-- MUDE A VERSÃO
+const CACHE_NAME = "jb-analyzer-cache-v2"; // 👈 MUDE A VERSÃO SEMPRE
 
 self.addEventListener("install", event => {
   self.skipWaiting();
@@ -29,3 +29,10 @@ self.addEventListener("activate", event => {
   self.clients.claim();
 });
 
+self.addEventListener("fetch", event => {
+  event.respondWith(
+    fetch(event.request).catch(() =>
+      caches.match(event.request)
+    )
+  );
+});
